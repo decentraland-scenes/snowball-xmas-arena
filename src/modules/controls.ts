@@ -36,7 +36,7 @@ export function initControls(){
             //ball.moveVector.copyFrom(throwDir.rotate(player.rotation))  
         // physicsBall.playerThrow(player.position.add(offsetVec.rotate(player.rotation)),throwDir.rotate(player.rotation), 200)
             //triggerEmote({ predefined: PredefinedEmote.RAISE_HAND })
-            SOUND_POOL_MGR.random.playOnce()
+
     })
     input.subscribe("BUTTON_UP", ActionButton.POINTER, true, e => {
         log("input.subscribe.BUTTON_UP.ActionButton.POINTER")
