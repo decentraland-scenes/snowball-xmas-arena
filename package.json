@@ -1,0 +1,31 @@
+{
+  "name": "dcl-project",
+  "version": "1.0.0",
+  "description": "My new Decentraland project",
+  "scripts": {
+    "start": "CI=true dcl start -p ${PORT:=8000}",
+    "startx": "dcl start",
+    "build": "build-ecs",
+    "watch": "build-ecs --watch",
+    "build:ci": "dcl build",
+    "deploy:prod": "dcl deploy",
+    "deploy:testing": "dcl deploy --target peer-testing.decentraland.org",
+    "ecs:install": "npm install --save-dev decentraland-ecs@latest",
+    "ecs:install-next": "npm install --save-dev decentraland-ecs@next"
+  },
+  "devDependencies": {
+    "@types/node": "^12.12.31",
+    "decentraland-ecs": "^6.11.11"
+  },
+  "dependencies": {
+    "@dcl/ecs-scene-utils": "^1.7.5",
+    "@dcl/ui-scene-utils": "^1.8.4",
+    "colyseus.js": "^0.14.13",
+    "decentraland": "^3.13.0"
+  },
+  "bundleDependencies": [
+    "@dcl/ecs-scene-utils",
+    "@dcl/ui-scene-utils",
+    "colyseus.js"
+  ]
+}

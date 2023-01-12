@@ -1,0 +1,467 @@
+import { triggerEmote, PredefinedEmote } from '@decentraland/RestrictedActions'
+import { Room } from 'colyseus.js'
+import { room } from 'src/connection'
+import { Ball, BallManager } from './ball'
+import { EnemyManager } from './enemyManager'
+import { teamColor } from './teamColors'
+import { updateAmmo, DisplayCursorMessage } from './ui'
+import { lowerBodyRedShape, upperBodyRedShape } from './avatarResources'
+<<<<<<< HEAD
+import { MovingAverage } from 'src/utils/movingAverage'
+import { CONFIG } from 'src/config'
+import * as clientState from "src/snowball-fight/modules/connection/state/client-state-spec";
+import { CommonResources } from 'src/resources/common'
+=======
+import * as ui from './ui'
+>>>>>>> origin/master
+
+@Component('SelfCollider')
+export class SelfCollider {}
+
+export class BasePlayer {
+  id: string
+  userId:string
+  collider:Entity
+
+  color:teamColor = teamColor.BLUE
+
+  serverState: clientState.PlayerState;
+  sessionId:string
+  latencyAvgMv: MovingAverage = new MovingAverage(CONFIG.LATENCY_AVERAGE_WINDOW_SIZE);
+  latencyAvg: number;
+  latencyLast: number;
+  lastKnowServerTime: number;
+  lastKnownClientTime: number;
+
+  avatarTexture?:AvatarTexture
+
+
+  moveDir:Vector3 = Vector3.Forward()
+  lookDir:Vector3 = Vector3.Forward()
+  prevPosition:Vector3 = new Vector3(0,0,0)     
+  feetPos:Vector3 
+  horizontalRotation:Quaternion = Quaternion.Euler(0,0,0)
+
+  setUserId(userId:string){
+    this.userId = userId
+     //FIXME, not working for non web3 locally?? is it just local issue or broke for all web3?
+     let myAvatarTexture = new AvatarTexture(userId)
+     const myMaterial = new Material()
+     myMaterial.albedoTexture = myAvatarTexture
+     myMaterial.alphaTexture = CommonResources.RESOURCES.textures.transparent.texture
+     myMaterial.alphaTest=1
+     //markerFace.addComponent(myMaterial)
+
+     //markerFace.setParent(shapeEnt)
+
+     //player.entities.markerFace = markerFace
+     this.avatarTexture = myAvatarTexture
+
+  }
+  setId(id:string){
+    this.id = id
+  }
+}
+//TODO-DCL-MERGE-WITH 
+//import { player, scene } from './og-decentrally/modules/scene'
+export class Player extends BasePlayer{
+  ballManager: BallManager
+  enemyManager: EnemyManager
+  cam: Camera
+<<<<<<< HEAD
+  
+=======
+  cameraMode:number = 0
+  color: teamColor = teamColor.BLUE  
+>>>>>>> origin/master
+  selfAvatarLowerBody:Entity
+  selfAvatarUpperBodyRoot:Entity
+  selfAvatarUpperBodyMesh:Entity
+  lowerBodyAnimator:Animator
+  clipRun:AnimationState
+  clipIdle:AnimationState
+  
+  
+
+  isBackwards:boolean = false
+  isIdle:boolean = true
+  isWalking:boolean = false
+  throwForce: number = 1
+  maxForce: number = 3
+  throwForceBase: number = 0.1  
+  increasForceMode:boolean = false
+  throwIncreaseSpeed:number = 1
+  //testDummy: Entity
+  //dummyAnimator: Animator
+  //clipThrow: AnimationState
+  //clipHit: AnimationState
+  ammo: number = 0
+  maxAmmo: number = 10
+  ammoSys: AmmoTimerSystem
+  matchStarted: boolean = false
+ 
+
+  roomConnected: boolean = false
+  room: Room
+  physicsCastParcel: PhysicsCast
+  isInSnowPickupZone: boolean = false
+  inCooldown: boolean = false
+  pickupEmitter:Entity
+  pickupSound:AudioSource
+
+  constructor(color: teamColor) {
+    super()
+
+    this.color = color
+    this.physicsCastParcel = PhysicsCast.instance
+
+    this.id = '0x0'
+    this.cam = Camera.instance
+    this.collider = new Entity()
+    this.collider.addComponent(
+      new Transform({
+        position: new Vector3(0, 0, 0),
+      })
+    )
+    if(color == teamColor.BLUE){
+      this.collider.addComponent(
+        new GLTFShape('models/self_marker_blue.glb')
+      ).isPointerBlocker = false
+    }
+    else{
+      this.collider.addComponent(
+        new GLTFShape('models/self_marker_red.glb')
+      ).isPointerBlocker = false
+    }   
+    this.collider.addComponent(new SelfCollider())
+    engine.addEntity(this.collider)
+    this.collider.setParent(Attachable.AVATAR)
+
+    this.feetPos = this.cam.feetPosition
+
+    this.isInSnowPickupZone = false
+
+    this.ammoSys = new AmmoTimerSystem(this)
+    engine.addSystem(this.ammoSys)
+
+    //LOWER BODY
+    this.selfAvatarLowerBody = new Entity()
+    this.selfAvatarLowerBody.addComponent(new Transform({
+        position: new Vector3(0,-1.8,0),
+        scale: new Vector3(0.7,0.7,0.7),          
+    }))
+    this.selfAvatarLowerBody.addComponent(lowerBodyRedShape)
+    engine.addEntity(this.selfAvatarLowerBody)
+    this.selfAvatarLowerBody.setParent(Attachable.FIRST_PERSON_CAMERA)
+
+    // UPPER BODY ROOT PIVOT
+    this.selfAvatarUpperBodyRoot = new Entity()
+    this.selfAvatarUpperBodyRoot.addComponent(new Transform({
+        position: new Vector3(0,-1.0,0),
+        scale: new Vector3(0.65, 0.65, 0.65)
+    }))
+    this.selfAvatarUpperBodyRoot.addComponent(new Billboard())
+    engine.addEntity( this.selfAvatarUpperBodyRoot)
+
+    // UPPER BODY MESH
+    this.selfAvatarUpperBodyMesh = new Entity()
+    this.selfAvatarUpperBodyMesh.addComponent(new Transform({
+        position: new Vector3(-0.2,-1, -0.4),
+        scale: new Vector3(1,1,1),
+        rotation: Quaternion.Euler(-20,200,0)
+    }))
+    this.selfAvatarUpperBodyMesh.addComponent(upperBodyRedShape)
+    this.selfAvatarUpperBodyMesh.setParent(this.selfAvatarUpperBodyRoot)
+    this.selfAvatarUpperBodyRoot.setParent(Attachable.FIRST_PERSON_CAMERA)
+    //shotgun.setParent(this.selfAvatarUpperBodyMesh)
+
+    this.lowerBodyAnimator = new Animator()
+    this.clipRun = new AnimationState("Run")
+    this.clipIdle = new AnimationState("Idle")
+
+    this.selfAvatarLowerBody.addComponent( this.lowerBodyAnimator)
+    this.lowerBodyAnimator.addClip(this.clipRun)
+    this.lowerBodyAnimator.addClip(this.clipIdle)
+
+    this.clipRun.speed = 1.2
+    this.clipRun.playing = true     
+
+    this.pickupEmitter = new Entity()
+    this.pickupEmitter.addComponent(new Transform())
+    engine.addEntity(this.pickupEmitter)
+    this.pickupEmitter.setParent(Attachable.AVATAR)
+
+    let audioClip = new AudioClip('sounds/ammo_pickup.mp3')
+    this.pickupSound = new AudioSource(audioClip)
+    this.pickupSound.volume = 4
+    this.pickupEmitter.addComponent(this.pickupSound)
+
+ 
+  }
+
+  //http://www.zrzahid.com/moving-average-of-last-n-numbers-in-a-stream/
+  //https://shareablecode.com/snippets/moving-average-from-data-stream-c-solution-leetcode-Gmzm-7sjZ
+  //https://www.toni-develops.com/2022/04/12/moving-average-from-data-stream/?utm_source=rss&utm_medium=rss&utm_campaign=moving-average-from-data-stream
+  updateLatency(clientTime: number, serverTime: number) {
+    if (this.lastKnownClientTime > 0) {
+      //TODO take a weight average as seeing it cycle, 0 should not be possible
+      /*
+      index.js:83 kernel:scene: [-14, 76]    calculateWorldPosFromWorldPos latancey 0 0
+      2index.js:83 kernel:scene: [-14, 76]    calculateWorldPosFromWorldPos latancey 0.3604 360.4
+      2index.js:83 kernel:scene: [-14, 76]    calculateWorldPosFromWorldPos latancey 0.2125 212.5
+      2index.js:83 kernel:scene: [-14, 76]    calculateWorldPosFromWorldPos latancey 0.13090000000000002 130.9
+      2index.js:83 kernel:scene: [-14, 76]    calculateWorldPosFromWorldPos latancey 0.1751 175.1
+      2index.js:83 kernel:scene: [-14, 76]    calculateWorldPosFromWorldPos latancey 0.1802 180.2
+      2index.js:83 kernel:scene: [-14, 76]    calculateWorldPosFromWorldPos latancey 0 0
+      */
+      //should we add in + CONFIG.SEND_RACE_DATA_FREQ_MILLIS?
+
+      this.latencyLast = Math.max(
+        clientTime - this.lastKnownClientTime + CONFIG.LATENCY_MISC_FACTOR,
+        CONFIG.SEND_RACE_DATA_FREQ_MILLIS
+      ); //times 2 for round trip??
+      this.latencyAvgMv.add(this.latencyLast);
+      this.latencyAvg = this.latencyAvgMv.average;
+    }
+    this.lastKnownClientTime = clientTime;
+    this.lastKnowServerTime = serverTime;
+  }
+
+  addBallManager(ballManager: BallManager) {
+    this.ballManager = ballManager
+  }
+  addEnemyManager(_enemyManager: EnemyManager) {
+    this.enemyManager = _enemyManager
+  }
+  useAmmo() {
+    if (this.roomConnected) {
+      this.ammo -= 1
+
+      if (this.ammo <= 0) {
+        this.ammo = 0
+        //this.handBall.getComponent(Transform).scale.setAll(0)
+      }
+      player.inCooldown = true
+      updateAmmo(this.ammo, this.maxAmmo)
+    }
+  }
+
+  setColor(_teamColor: number) {
+    switch (_teamColor) {
+      case teamColor.RED: {
+        this.color = teamColor.RED
+        this.collider.addComponentOrReplace(
+          new GLTFShape('models/self_marker_red.glb')
+        ).isPointerBlocker = false
+        break
+      }
+      case teamColor.BLUE: {
+        this.color = teamColor.BLUE
+        this.collider.addComponentOrReplace(
+          new GLTFShape('models/self_marker_blue.glb')
+        ).isPointerBlocker = false
+        break
+      }
+    }
+  }
+  setRoom(_room: Room) {
+    this.room = _room
+    this.roomConnected = true
+  }
+  getHorizontalRotation(): Quaternion {
+    return Quaternion.FromToRotation(
+      Vector3.Forward(),
+      Vector3.Forward().rotate(this.cam.rotation).multiplyByFloats(1, 0, 1)
+    )
+  }
+  collectAmmo() {
+
+    if (player.isInSnowPickupZone) {
+      
+
+      this.ammoSys.isActive = true       
+      triggerEmote({ predefined: 'crafting' as any })
+    }
+    else{
+      DisplayCursorMessage("CRAFTING NOT ALLOWED HERE", "USE EMPTY PARCELS", 2)
+    }
+
+  }
+  stopCollectAmmo() {
+    this.ammoSys.isActive = false
+  }
+  checkDefaultParcel() {
+    let result = false
+    this.isInSnowPickupZone = true
+
+  }
+  setWalking(isWalking:boolean){
+    this.isWalking = isWalking
+  }
+  hideAvatar(){
+    this.selfAvatarUpperBodyMesh.getComponent(Transform).scale.setAll(0)
+  }
+  showAvatar(){
+    this.selfAvatarUpperBodyMesh.getComponent(Transform).scale.setAll(1)
+  }
+  // UPDATE UPPER AND LOWER BODY + ANIMATIONS BASED ON CAM/MOVEMENT DIRECTION
+  updateAvatar(){
+    this.feetPos =  this.cam.feetPosition
+    this.moveDir =  this.feetPos.subtract( this.prevPosition)
+    this.lookDir = Vector3.Forward().rotate( this.cam.rotation).multiplyByFloats(1,0,1).normalize()        
+    this.horizontalRotation = Quaternion.FromToRotation(Vector3.Forward(),  this.lookDir)
+    
+
+    if(Vector3.Dot( this.moveDir,  this.lookDir) < -0.05 ){
+      this.isBackwards = true
+      //log("Player running Backward: " + player.isBackwards)
+    }
+    else{
+      this.isBackwards = false
+      //log("Player running Forward: " + player.isBackwards)
+    }
+
+    if(Vector3.DistanceSquared( this.prevPosition,  this.feetPos) < 0.001){
+      //player.isBackwards = false
+      this.isIdle = true
+    }
+    else{
+      this.isIdle = false
+    }
+
+    this.prevPosition.copyFrom(this.feetPos)
+
+    if( this.isIdle){
+      this.clipRun.stop()
+      this.clipIdle.looping = true
+      this.clipIdle.play()     
+    }
+    else{
+      this.clipIdle.stop()
+      this.clipRun.looping = true
+      this.clipRun.play()
+
+      if( this.isBackwards){
+        this.clipRun.speed = -1.0
+
+        if(this.isWalking){
+          this.clipRun.speed = -0.5
+        }
+        
+
+        this.selfAvatarLowerBody.getComponent(Transform).rotation = Quaternion.Euler(0,180,0)
+      }else{
+        this.clipRun.speed = 1.2
+        if(this.isWalking){
+          this.clipRun.speed = 0.6
+        }
+        this.selfAvatarLowerBody.getComponent(Transform).rotation = Quaternion.Euler(0,0,0)
+      }
+
+    }
+  }
+}
+
+class AmmoTimerSystem {
+  isActive: boolean = false
+  elapsed: number = 0
+  cooldown: number = 1
+
+  playerRef: Player
+
+  constructor(_player: Player) {
+    this.playerRef = _player
+  }
+
+  update(dt: number) {
+    if (this.isActive) {
+      if (this.elapsed < this.cooldown) {
+        this.elapsed += dt
+      } 
+      else {
+        if (this.playerRef.isInSnowPickupZone) {
+          if (this.playerRef.ammo < this.playerRef.maxAmmo) {
+            this.playerRef.ammo++
+           // log('AMMO: ' + this.playerRef.ammo + '/' + this.playerRef.maxAmmo)
+            updateAmmo(this.playerRef.ammo, this.playerRef.maxAmmo)
+          }
+        }
+        this.elapsed = 0
+        triggerEmote({ predefined: 'crafting' as any })
+      }
+    }
+  }
+}
+
+export let player = new Player(teamColor.BLUE)
+
+export class SnowballCooldownSystem {
+  elapsed: number = 0
+  cooldown: number = 0.75
+
+  update(dt: number) {
+    if (player.inCooldown) {
+      //log("elapsed: " + cooldownInfo.elapsed)
+      if (this.elapsed < this.cooldown) {
+        this.elapsed += dt
+        //cooldownInfo.inCooldown = true
+      } else {
+        // log("TIMESUP: " + cooldownInfo.elapsed)
+        //log("elapsed: " + cooldownInfo.elapsed)
+        this.elapsed = 0
+        player.inCooldown = false
+      }
+    }
+  }
+}
+
+engine.addSystem(new SnowballCooldownSystem())
+
+
+export class ForceIncreaseSystem {
+  
+  update(dt: number) {
+    if(player.increasForceMode){
+      player.throwForce += dt * player.throwIncreaseSpeed
+      if(player.throwForce > player.maxForce){
+        player.throwForce = player.maxForce
+      }
+      ui.setThrowForceUI( Math.floor((player.throwForce-1)/(player.maxForce-1) *8))
+    }
+    else {
+      player.throwForce = 1
+      ui.setThrowForceUI(0)
+    }
+  }
+}
+
+engine.addSystem(new ForceIncreaseSystem())
+
+class PlayerControllerSystem {
+
+  playerRef: Player
+
+  constructor(_player: Player) {
+    this.playerRef = _player
+  }
+  
+  update(dt:number){
+    this.playerRef.updateAvatar()
+  }
+}
+engine.addSystem(new PlayerControllerSystem(player))
+
+
+onCameraModeChangedObservable.add(({ cameraMode }) => {
+  log("Camera mode changed:", cameraMode)
+
+  if(cameraMode == 0 ){
+    player.cameraMode = 0
+    player.hideAvatar()
+  }
+  else{
+    player.cameraMode = 1
+    player.showAvatar()
+  }
+
+})
