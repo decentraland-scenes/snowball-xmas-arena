@@ -410,6 +410,7 @@ export class BaseBattleRoom extends Room<BattleRoomState> {
                 log(CLASSNAME,this.roomId,METHOD_NAME,"reconnect failed!!!", [player.userData.name, client.sessionId, e])
 
                 if(playerWasCreated) player.connStatus = "lost connection"
+                this.checkIsBattleOver()
             }
         }else{
             if(playerWasCreated) player.connStatus = "disconnected"
